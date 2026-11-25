@@ -1,0 +1,62 @@
+name: Daily stats sync
+
+on:
+  schedule:
+    - cron: "17 1 * * *"   # every day at 06:47 IST (01:17 UTC)
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: "Refresh stats for videos posted in the last N days"
+        required: false
+        default: "14"
+
+permissions:
+  contents: write   # only used by the keep-alive step below
+
+concurrency:
+  group: ugc-stats-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Pull Instagram + YouTube stats into Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          ENCRYPTION_PASSPHRASE: ${{ secrets.ENCRYPTION_PASSPHRASE }}
+          REDIRECT_URI: ${{ secrets.REDIRECT_URI }}
+          IG_APP_ID: ${{ secrets.IG_APP_ID }}
+          IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '14' }}
+        run: python -m ugc_sync.sync
+
+      # GitHub pauses scheduled workflows in repos with no activity for 60 days.
+      # This commits a tiny date file about once a month so the daily sync keeps running.
+      - name: Keep the schedule alive
+        if: github.event_name == 'schedule'
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          if [ $(( (now - last) / 86400 )) -ge 40 ]; then
+            date -u +%F > .github/heartbeat
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/heartbeat
+            git commit -m "Keep daily sync schedule active"
+            git push
+          fi

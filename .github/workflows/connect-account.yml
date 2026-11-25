@@ -1,0 +1,40 @@
+name: Connect an account
+
+on:
+  workflow_dispatch:
+    inputs:
+      connection_code:
+        description: "Paste the code the creator sent you (starts with ig| or yt|)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      # The code is read from the event file inside Python (not passed as an env var),
+      # so it never appears in the log.
+      - name: Connect account
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          ENCRYPTION_PASSPHRASE: ${{ secrets.ENCRYPTION_PASSPHRASE }}
+          REDIRECT_URI: ${{ secrets.REDIRECT_URI }}
+          IG_APP_ID: ${{ secrets.IG_APP_ID }}
+          IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: python -m ugc_sync.connect
