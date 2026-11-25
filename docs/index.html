@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Connect your account</title>
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e4e2dc; --accent:#2f6fed; --ok:#1f8a4c; --bad:#c0392b; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141416; --card:#1e1e21; --ink:#f2f2f4; --muted:#a0a0a8; --line:#323236; --accent:#6a9bff; --ok:#46c27a; --bad:#ff6b5e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:520px; margin:0 auto; padding:32px 16px 48px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:24px; }
+  h1 { font-size:22px; margin:0 0 8px; }
+  p { margin:0 0 14px; color:var(--muted); }
+  .badge { display:inline-block; font-size:13px; font-weight:600; padding:3px 10px; border-radius:99px; margin-bottom:14px; }
+  .ok { background:color-mix(in srgb, var(--ok) 15%, transparent); color:var(--ok); }
+  .bad { background:color-mix(in srgb, var(--bad) 15%, transparent); color:var(--bad); }
+  textarea { width:100%; min-height:110px; font:13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color:var(--ink);
+             background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:12px; resize:none; word-break:break-all; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  button, a.btn { flex:1 1 160px; appearance:none; border:0; border-radius:10px; padding:12px 14px; font:600 15px/1 inherit;
+                  font-family:inherit; text-align:center; text-decoration:none; cursor:pointer; }
+  .primary { background:var(--accent); color:#fff; }
+  .secondary { background:transparent; color:var(--ink); border:1px solid var(--line) !important; }
+  ol { padding-left:20px; color:var(--muted); margin:16px 0 0; }
+  li { margin-bottom:6px; }
+  .hidden { display:none; }
+  small { color:var(--muted); display:block; margin-top:16px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card" id="success" hidden>
+    <span class="badge ok">Approved</span>
+    <h1>Thanks! One last step</h1>
+    <p>Copy this code and send it to your manager on WhatsApp <strong>right away</strong> — it expires in a few minutes.</p>
+    <textarea id="code" readonly aria-label="Connection code"></textarea>
+    <div class="row">
+      <button class="primary" id="copy" type="button">Copy code</button>
+      <a class="btn secondary" id="wa" href="#" target="_blank" rel="noopener">Send via WhatsApp</a>
+    </div>
+    <small>This only lets your manager read your post stats (views, likes, comments, shares, saves, watch time). It can't post, message or change anything on your account, and you can remove access any time.</small>
+  </div>
+
+  <div class="card" id="failure" hidden>
+    <span class="badge bad">Not approved</span>
+    <h1>Access wasn't approved</h1>
+    <p id="reason">You closed the approval screen or declined access.</p>
+    <p>If that was a mistake, open the Connect Link your manager sent you again and tap <strong>Allow</strong>.</p>
+  </div>
+
+  <div class="card" id="info">
+    <h1>Connect your account</h1>
+    <p>This page finishes connecting your Instagram or YouTube account to your team's stats tracker.</p>
+    <ol>
+      <li>Open the <strong>Connect Link</strong> your manager sent you.</li>
+      <li>Log in to the right account and tap <strong>Allow</strong>.</li>
+      <li>You'll come back here with a code to send to your manager.</li>
+    </ol>
+  </div>
+</main>
+<script>
+(function () {
+  // Instagram appends "#_" to the redirect; also read any params that ended up after the "#".
+  var q = new URLSearchParams(window.location.search);
+  new URLSearchParams(window.location.hash.replace(/^#_?&?/, "")).forEach(function (v, k) { if (!q.has(k)) q.set(k, v); });
+  var code = (q.get("code") || "").replace(/#_$/, "").trim();
+  var state = q.get("state") || "";
+  var error = q.get("error") || q.get("error_reason");
+  var show = function (id) {
+    ["success", "failure", "info"].forEach(function (x) { document.getElementById(x).hidden = (x !== id); });
+  };
+  if (error) {
+    var desc = q.get("error_description") || "";
+    if (desc) document.getElementById("reason").textContent = desc.replace(/\+/g, " ");
+    show("failure");
+    return;
+  }
+  var m = state.match(/^(ig|yt)\.([0-9a-fA-F]{32})$/);
+  if (!code || !m) { show("info"); return; }
+  var value = m[1] + "|" + m[2] + "|" + code;
+  var box = document.getElementById("code");
+  box.value = value;
+  document.getElementById("wa").href = "https://wa.me/?text=" + encodeURIComponent("Stats connection code: " + value);
+  document.getElementById("copy").addEventListener("click", function () {
+    var btn = this;
+    var done = function () { btn.textContent = "Copied ✓"; setTimeout(function () { btn.textContent = "Copy code"; }, 2000); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(done, function () { box.select(); document.execCommand("copy"); done(); });
+    } else { box.select(); document.execCommand("copy"); done(); }
+  });
+  // Remove the code from the address bar so it isn't left in browser history.
+  try { history.replaceState(null, "", window.location.pathname); } catch (e) {}
+  show("success");
+})();
+</script>
+</body>
+</html>
